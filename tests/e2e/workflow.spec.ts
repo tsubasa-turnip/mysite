@@ -166,11 +166,27 @@ test('API authorization, CSRF, file limits, consent and user isolation', async (
     [a, 'api-a'],
     [b, 'api-b'],
   ] as const) {
+    const credentials = {
+      email: `${prefix}-${Date.now()}@example.test`,
+      password: 'synthetic-test-password',
+    };
     const r = await ctx.request.post('/api/auth/register', {
       headers: { origin },
-      data: { email: `${prefix}-${Date.now()}@example.test`, password: 'synthetic-test-password' },
+      data: credentials,
     });
     expect(r.ok()).toBe(true);
+    const registered = await r.json();
+    const logout = await ctx.request.post('/api/auth/logout', { headers: { origin }, data: {} });
+    expect(logout.ok()).toBe(true);
+    expect((await ctx.request.get('/api/me')).status()).toBe(401);
+    const login = await ctx.request.post('/api/auth/login', {
+      headers: { origin },
+      data: credentials,
+    });
+    expect(login.ok()).toBe(true);
+    const authenticated = await ctx.request.get('/api/me');
+    expect(authenticated.ok()).toBe(true);
+    expect((await authenticated.json()).user.id).toBe(registered.id);
   }
   const entry = await a.request.post('/api/journals', {
     headers: { origin },

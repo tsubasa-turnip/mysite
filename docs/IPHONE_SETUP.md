@@ -51,7 +51,7 @@ SELECT encode(gen_random_bytes(32), 'hex') AS encryption_key;
 
 結果の表に出るセルの内容（`0`〜`9`と`a`〜`f`からなる64文字）だけを`DATA_ENCRYPTION_KEY`のValueへコピーします。SQLの文、列名`encryption_key`、引用符、改行を含めません。秘密の値をチャットやスクリーンショットに載せず、Vercelと安全なバックアップ先へ直接保存してください。
 
-`INNER_WEATHER_LOCAL` は設定しません。実際のドメインが予定と変わった場合は `APP_ORIGIN` を更新して再デプロイします。PreviewとProductionのURLは異なるため、それぞれ使うURLに合わせて設定します。複数環境はDBと暗号鍵も分けてください。
+`INNER_WEATHER_LOCAL` は設定しません。`APP_ORIGIN`には継続して使う公開URLを設定し、そのドメインを変更するときは更新して再デプロイします。このプロジェクトのVercelデプロイURL・ブランチURLは、Vercelのシステム環境変数から自動で許可します。複数環境はDBと暗号鍵も分けてください。
 
 公開前の設定確認は次で実行できます。外部通信・課金・マイグレーションは行いません。
 
@@ -71,10 +71,10 @@ Productionのブランチを切り替える順序は次のとおりです。
 2. デプロイが **Ready** になった後、**Settings → Environments → Production → Branch Tracking** に`codex/inner-weather-iphone`を入れて **Save** します。`No deployments found`の場合は、先にこのブランチのデプロイを成功させてください。
 3. Productionの環境変数を確認し、同じブランチを再デプロイします。
 
-PreviewのURLとProductionのURLは異なります。`APP_ORIGIN`がProductionのURLのままのPreviewではログイン等が403になるため、Previewを実際に操作する場合はそのURLへ設定を合わせて再デプロイします。Production設定を変える必要はありません。公開用ドメインでの確認は、Productionのデプロイが成功してから行います。
+PreviewのURLとProductionのURLは異なります。このプロジェクトに発行されたURLは、`VERCEL_URL`・`VERCEL_BRANCH_URL`・`VERCEL_PROJECT_PRODUCTION_URL`の完全一致で認証操作を許可します。別プロジェクトの`vercel.app`やリクエストの転送ヘッダーは許可の根拠にしません。Vercelのシステム環境変数を有効にしてください。公開用ドメインでの確認は、Productionのデプロイが成功してから行います。
 
 1. Vercelの **Domains** に表示されたアプリURLをコピーします。
-2. `APP_ORIGIN` がそのURLのoriginと一致することを確認します。異なる場合は設定を変更し、再デプロイします。
+2. `APP_ORIGIN`には継続して使う公開URLのoriginを設定します。デプロイごとの一時的なURLへ毎回変更する必要はありません。
 3. Supabaseの **Authentication → URL Configuration** で **Site URL** を同じHTTPS URLに設定します。確認メールのリンクにも使われます。
 4. SafariでそのURLを開き、「はじめての方はこちら」からアカウントを作成します。確認メールが届いた場合は先にメールを確認し、パスワードでログインします。
 

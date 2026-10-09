@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { db, asUser } from './db';
 import { hash, passwordHash, passwordMatches } from './crypto';
 import { AppError } from './validation';
+import { authProviderError } from './auth-errors';
 import { z } from 'zod';
 const cookieName = 'iw_session';
 const authSchema = z.object({
@@ -63,8 +64,7 @@ export async function authenticate(input: unknown, register: boolean) {
     const { data, error } = register
       ? await client.auth.signUp({ email, password })
       : await client.auth.signInWithPassword({ email, password });
-    if (error)
-      throw new AppError(400, '認証できませんでした。メールアドレスとパスワードを確認してください');
+    if (error) throw authProviderError(error);
     if (!data.session || !data.user) return { verifyEmail: true };
     token = data.session.access_token;
     userId = data.user.id;

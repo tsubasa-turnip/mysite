@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { currentUser, authenticate, logout } from '@/lib/auth';
 import { AppError, uuidSchema, dateOnly } from '@/lib/validation';
+import { assertRequestOrigin } from '@/lib/request-origin';
 import { asUser } from '@/lib/db';
 import {
   listEntries,
@@ -51,12 +52,6 @@ function rate(key: string, max = 180) {
     return;
   }
   if (++v.n > max) throw new AppError(429, '少し時間をおいてからお試しください');
-}
-function origin(req: NextRequest) {
-  if (req.method === 'GET') return;
-  const expected = process.env.APP_ORIGIN || new URL(req.url).origin;
-  const actual = req.headers.get('origin');
-  if (actual !== expected) throw new AppError(403, 'リクエスト元を確認できません');
 }
 async function bounded(req: NextRequest, max: number) {
   if (Number(req.headers.get('content-length') || 0) > max)
@@ -122,7 +117,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
         throw new AppError(401, '認証が必要です');
       return ok({ processed: await runWorkerTick(1) });
     }
-    origin(req);
+    assertRequestOrigin(req);
     if (['auth/login', 'auth/register'].includes(route) && req.method === 'POST') {
       rate('auth:' + (req.headers.get('x-forwarded-for')?.split(',')[0] || 'local'), 10);
       return ok(await authenticate(await json(req), route.endsWith('register')));
