@@ -1,0 +1,9 @@
+.git
+.env*
+.inner-weather
+node_modules
+.next
+test-results
+playwright-report
+coverage
+*.tsbuildinfo

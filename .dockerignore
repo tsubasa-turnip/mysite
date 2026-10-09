@@ -1,0 +1,8 @@
+.git
+node_modules
+.next
+.env*
+.inner-weather
+coverage
+test-results
+playwright-report

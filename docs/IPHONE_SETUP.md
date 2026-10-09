@@ -1,0 +1,91 @@
+# iPhoneでInner Weatherを開く準備
+
+公開先は **Vercel + Supabase** を使います。Codex内のポート3000をiPhoneから直接開くことはできません。Codexのクラウド環境の公開と、Webアプリのデプロイは別の操作です。
+
+## 1. アカウントを作成する
+
+- [Supabase](https://supabase.com/dashboard) にサインアップし、専用プロジェクトを作成します。無料枠で始める場合は Free を選択します。DBパスワードはパスワード管理アプリなどに保存します。
+- [Vercel](https://vercel.com/signup) に GitHub でサインアップします。個人の検証用途で無料枠を使う場合は Hobby を選択します。料金・利用条件は作成画面で確認してください。
+
+この2つのサービスで本人のログイン・確認操作が必要です。APIキーとDBパスワードをチャットに送る必要はありません。
+
+## 2. Supabaseにテーブルを作成する
+
+1. プロジェクトの **SQL Editor** を開きます。
+2. [`supabase/migrations/001_inner_weather.sql`](../supabase/migrations/001_inner_weather.sql) の全文を貼り付けて実行します。専用プロジェクトにのみ適用してください。
+3. **Authentication → Providers** で Email / Password を有効にします。メール確認を有効にしたまま使えます。
+4. **Connect** の接続文字列から transaction pooler の PostgreSQL URL を取得します。パスワードを差し替え、特殊文字をURLエンコードしてください。
+5. Project Settings / API から Project URL と publishable / anon key を取得します。
+
+DB接続にはTLS検証を使います。接続失敗時に証明書検証を無効化せず、必要ならSupabaseが提供する正規のCA証明書を使用してください。
+
+## 3. Vercelのプロジェクトを設定する
+
+GitHubに実装ブランチ `codex/inner-weather-iphone` があることを確認します。`master` にはまだ元の静的ページがあるため、実装ブランチを選択してください。
+
+1. Vercelで **Add New → Project** を開き、`tsubasa-turnip/mysite` を選択します。GitHub連携でこのリポジトリへのアクセスを許可します。
+2. 実装ブランチ `codex/inner-weather-iphone` を選択します。ブランチ選択が表示されない場合、GitHubの当該ブランチ画面からURLをコピーし、VercelのGitリポジトリURLでのImportに指定します。
+3. Framework Preset は **Next.js**、Root Directory はリポジトリのルートです。プロジェクト名を決め、割り当てられる `https://<プロジェクト名>.vercel.app` を確認します。
+4. Node.jsは **24.x** を指定します。インストールとビルドのコマンド、4 MBのアップロード上限は `vercel.json` にあります。
+5. 以下を **Environment Variables** に登録します。`NEXT_PUBLIC_` を付けず、値をGitHubへコミットしないでください。
+
+| 名前                        | 入れる値                                                         |
+| --------------------------- | ---------------------------------------------------------------- |
+| `DATABASE_URL`              | Supabase transaction poolerの接続文字列                          |
+| `SUPABASE_URL`              | `https://<project-ref>.supabase.co`                              |
+| `SUPABASE_ANON_KEY`         | Supabase publishable / anon key                                  |
+| `DATA_ENCRYPTION_KEY`       | 安全に生成した32バイトの鍵を64桁の16進数で表した値               |
+| `APP_ORIGIN`                | このアプリを開く実際のHTTPS origin。末尾の `/` は付けない        |
+| `SUPABASE_SERVICE_ROLE_KEY` | 任意。アカウント完全削除を利用する場合のサーバー専用キー         |
+| `OPENAI_API_KEY`            | 任意。生成AI・文字起こしを使う場合のみ。最初は未設定で構いません |
+
+暗号鍵は信頼できる端末で `openssl rand -hex 32` を実行して生成します。表示された鍵をVercelの設定へ直接コピーし、別途安全にバックアップします。鍵を失うと本文を復号できません。Codexの秘密変数名に制約がある場合のOpenAI設定はREADMEを参照してください。
+
+`INNER_WEATHER_LOCAL` は設定しません。実際のドメインが予定と変わった場合は `APP_ORIGIN` を更新して再デプロイします。PreviewとProductionのURLは異なるため、それぞれ使うURLに合わせて設定します。複数環境はDBと暗号鍵も分けてください。
+
+公開前の設定確認は次で実行できます。外部通信・課金・マイグレーションは行いません。
+
+```bash
+npm run check:deploy
+```
+
+Vercelのビルドでも同じ確認を実行します。設定不足やHTTPのorigin、開発用DBモードの場合は公開用ビルドを止めます。形式の確認だけなので、Supabase実接続の成功を保証するものではありません。
+
+## 4. デプロイして認証URLを設定する
+
+設定内容と公開対象を確認してから **Deploy** を実行します。この操作でHTTPSのURLが発行されます。料金の発生するプラン・追加サービスは別途確認してください。
+
+1. Vercelの **Domains** に表示されたアプリURLをコピーします。
+2. `APP_ORIGIN` がそのURLのoriginと一致することを確認します。異なる場合は設定を変更し、再デプロイします。
+3. Supabaseの **Authentication → URL Configuration** で **Site URL** を同じHTTPS URLに設定します。確認メールのリンクにも使われます。
+4. SafariでそのURLを開き、「はじめての方はこちら」からアカウントを作成します。確認メールが届いた場合は先にメールを確認し、パスワードでログインします。
+
+公開後の設定を変更したときはVercelで再デプロイしてください。開発用アカウントやCodex内のデータは自動移行されません。必要な記録はJSONで書き出して保持し、ChatGPT原文は公式エクスポートから公開先へインポートしてください。一般のInner WeatherバックアップJSONの再取り込みは未実装です。
+
+## 5. iPhoneのホーム画面に追加する
+
+1. **Safari** で発行されたアプリURLを開きます。
+2. **共有 → ホーム画面に追加 → 追加** を選びます。iOSのバージョンによって「Webアプリとして開く」が表示された場合は有効にします。
+3. ホーム画面の **Inner Weather** アイコンから開きます。Safariとはログイン状態が分かれる場合があるので、必要に応じて再度ログインします。
+
+ホーム画面用のアイコン・Web Manifest・独立したウィンドウ表示を用意しています。ネット接続は必要です。日記をオフラインキャッシュするService Workerは導入していません。
+
+## 6. iPhoneで最初に確認すること
+
+合成の記録で次を確認してから、個人の日記を入力してください。
+
+- 日記の作成・編集・削除ができ、再読み込み後も保存されている。
+- ファイルアプリから4 MB以下のChatGPT ZIP / JSONを選べ、プレビュー後にインポートできる。
+- 候補の感情と日付を修正し、グラフと原文リンクに反映される。
+- HTTPS上でマイクを許可して録音できる。文字起こしにはOpenAI設定とアプリ内の送信同意が必要。
+- ホーム画面から開いたとき、下部ナビゲーションがホームインジケーターに重ならない。
+
+VercelのFunctionには約4.5 MBのリクエスト上限があるため、この構成ではファイル上限を4 MBにしています。大きなChatGPTエクスポートは、展開したJSONも4 MBを超える場合、最大25 MB対応のコンテナ構成が必要です。大容量の直接Storageアップロードは未実装です。
+
+音声ファイルもVercel構成では4 MB以下です。画面とサーバーの双方で上限を確認します。
+
+ブラウザを閉じるとインポート処理はいったん止まり、次に開くと続きから進みます。閉じている間も進めたい場合はREADMEの常駐ワーカーまたはPOSTスケジューラーを設定します。
+
+## 現在の検証範囲
+
+コードのテスト・ビルドとiPhoneサイズのChromium検証を行っています。Supabase/OpenAIの実接続、発行されたURL、iPhone実機Safariの動作は、接続設定とデプロイが済んでから別途検証する必要があります。

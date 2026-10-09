@@ -1,0 +1,62 @@
+{
+  "name": "inner-weather",
+  "version": "1.0.0",
+  "description": "A private journaling app with traceable ChatGPT import and emotional timelines",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "worker": "tsx scripts/worker.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "verify:live": "tsx scripts/verify-live.ts",
+    "check:deploy": "tsx scripts/check-deploy.ts",
+    "format": "prettier --write src scripts tests *.ts *.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tsubasa-turnip/mysite.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/tsubasa-turnip/mysite/issues"
+  },
+  "homepage": "https://github.com/tsubasa-turnip/mysite#readme",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@radix-ui/react-dialog": "^1.2.0",
+    "@supabase/supabase-js": "^2.117.3",
+    "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
+    "lucide-react": "^1.53.0",
+    "next": "^16.4.0",
+    "postgres": "^3.4.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
+}
