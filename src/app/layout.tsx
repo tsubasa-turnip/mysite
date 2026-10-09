@@ -5,7 +5,10 @@ export const metadata: Metadata = {
   description: '日記と過去の会話をつなぎ、心の変化をやさしく観察するプライベートジャーナル。',
   robots: { index: false, follow: false },
   applicationName: 'Inner Weather',
-  icons: { icon: '/inner-weather.svg' },
+  icons: {
+    icon: '/inner-weather.svg',
+    apple: { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+  },
   appleWebApp: { capable: true, title: 'Inner Weather', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
 };
