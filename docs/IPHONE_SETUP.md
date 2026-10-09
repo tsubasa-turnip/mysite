@@ -80,6 +80,23 @@ PreviewのURLとProductionのURLは異なります。このプロジェクトに
 
 公開後の設定を変更したときはVercelで再デプロイしてください。開発用アカウントやCodex内のデータは自動移行されません。必要な記録はJSONで書き出して保持し、ChatGPT原文は公式エクスポートから公開先へインポートしてください。一般のInner WeatherバックアップJSONの再取り込みは未実装です。
 
+### ログイン時の接続エラー
+
+既知のDB接続エラーには、秘密情報を含めない診断コードを表示します。コードと固定の説明文だけを共有すれば原因を調べられます。
+
+| コード | 確認する設定 |
+| --- | --- |
+| `DB_AUTH` | Vercelの`DATABASE_URL`。SupabaseのTransaction poolerのDBユーザー名と、実際のDBパスワードを使います。 |
+| `DB_CONFIG` | 接続文字列の形式。パスワードの特殊文字はURLエンコードしてください。 |
+| `DB_SCHEMA` | 同じSupabaseプロジェクトで[マイグレーションSQL](../supabase/migrations/001_inner_weather.sql)を実行してください。 |
+| `DB_PERMISSION` | マイグレーションと、接続したDBユーザーの権限を確認してください。 |
+| `DB_TLS` / `DB_TLS_CONFIG` | 接続先と、Supabaseが提供する信頼済みCA証明書を確認してください。 |
+| `DB_CONNECT` / `DB_DATABASE` | Transaction poolerのホスト・ポート・DB名、プロジェクトの稼働状態とネットワーク設定を確認してください。 |
+
+CA証明書が必要な場合はSupabaseの **Database → Settings → SSL Configuration** から取得し、証明書ファイル内の`-----BEGIN CERTIFICATE-----`から`-----END CERTIFICATE-----`までを、Vercelの環境変数`DATABASE_SSL_CA`のValueへ貼り付けます。複数の証明書を含むPEMにも対応します。設定を保存し再デプロイしてください。アプリとマイグレーションは接続先の証明書・ホスト名を検証します。
+
+確認メールを開いた後に`localhost`へ移動して到達エラーになる場合は、Supabaseの **Authentication → URL Configuration → Site URL** を公開URLへ変更して保存します。メール確認自体は完了している場合があるので、まずアプリへ戻りパスワードでログインしてください。Site URLの変更にはVercelの再デプロイは不要です。
+
 ## 5. iPhoneのホーム画面に追加する
 
 1. **Safari** で発行されたアプリURLを開きます。
