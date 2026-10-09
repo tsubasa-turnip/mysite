@@ -14,20 +14,20 @@
 1. プロジェクトの **SQL Editor** を開きます。
 2. [`supabase/migrations/001_inner_weather.sql`](../supabase/migrations/001_inner_weather.sql) の全文を貼り付けて実行します。専用プロジェクトにのみ適用してください。
 3. **Authentication → Providers** で Email / Password を有効にします。メール確認を有効にしたまま使えます。
-4. **Connect** の接続文字列から transaction pooler の PostgreSQL URL を取得します。パスワードを差し替え、特殊文字をURLエンコードしてください。
-5. Project Settings / API から Project URL と publishable / anon key を取得します。
+4. **Connect → Direct / Connection string** を選び、**Method → Transaction pooler** の PostgreSQL URL を取得します。`[YOUR-PASSWORD]`をDBパスワードで差し替え、特殊文字をURLエンコードしてください。DBパスワードを忘れた場合は、**Database → Settings → Reset database password** で再設定します。
+5. Project SettingsのAPI設定から Project URL を、**API Keys** から publishable / anon key を取得します。Publishable keyは`sb_publishable_`で始まる値です。Legacy API Keysを使う場合は`anon / public`を選びます。
 
 DB接続にはTLS検証を使います。接続失敗時に証明書検証を無効化せず、必要ならSupabaseが提供する正規のCA証明書を使用してください。
 
 ## 3. Vercelのプロジェクトを設定する
 
-GitHubに実装ブランチ `codex/inner-weather-iphone` があることを確認します。`master` にはまだ元の静的ページがあるため、実装ブランチを選択してください。
+GitHubに実装ブランチ `codex/inner-weather-iphone` があることを確認します。`master` には元の「Hello, World」の静的ページがあります。Vercelは初回Importで`master`を選ぶ場合があるため、実装ブランチのデプロイとProductionへの切り替えを別途行います。
 
 1. Vercelで **Add New → Project** を開き、`tsubasa-turnip/mysite` を選択します。GitHub連携でこのリポジトリへのアクセスを許可します。
-2. 実装ブランチ `codex/inner-weather-iphone` を選択します。ブランチ選択が表示されない場合、GitHubの当該ブランチ画面からURLをコピーし、VercelのGitリポジトリURLでのImportに指定します。
-3. Framework Preset は **Next.js**、Root Directory はリポジトリのルートです。プロジェクト名を決め、割り当てられる `https://<プロジェクト名>.vercel.app` を確認します。
+2. 初回Importが`master`で公開され、「Hello, World」が表示された場合は、そのプロジェクトを使って次の設定を続けます。
+3. 実装は **Next.js**、Root Directoryはリポジトリのルートです。実装ブランチの`vercel.json`がframeworkとビルドコマンドを指定します。**Settings → Domains**に表示される実際のドメインを確認し、`https://`を付けた値を`APP_ORIGIN`に使います。`<プロジェクト名>.vercel.app`は説明用の例で、実際のドメインはプロジェクト名だけから決められません。
 4. Node.jsは **24.x** を指定します。インストールとビルドのコマンド、4 MBのアップロード上限は `vercel.json` にあります。
-5. 以下を **Environment Variables** に登録します。`NEXT_PUBLIC_` を付けず、値をGitHubへコミットしないでください。
+5. 以下を **Environment Variables** に1項目ずつ登録します。**Key**に変数名、**Value**に値を入れます。接続文字列・APIキー・暗号鍵は **Secret**、公開URLは **Config** を選びます。Previewで先にビルドする場合はPreviewにも必要な設定を登録します。`NEXT_PUBLIC_`を付けず、値をGitHubへコミットしないでください。
 
 | 名前                        | 入れる値                                                         |
 | --------------------------- | ---------------------------------------------------------------- |
@@ -53,7 +53,15 @@ Vercelのビルドでも同じ確認を実行します。設定不足やHTTPのo
 
 ## 4. デプロイして認証URLを設定する
 
-設定内容と公開対象を確認してから **Deploy** を実行します。この操作でHTTPSのURLが発行されます。料金の発生するプラン・追加サービスは別途確認してください。
+設定内容と公開対象を確認してからデプロイします。GitHub連携済みのVercelでは、実装ブランチへの新しいコミットでも自動でPreviewが作られます。手動の場合は **Deployments → Create Deployment** でブランチ名`codex/inner-weather-iphone`を指定します。料金の発生するプラン・追加サービスは別途確認してください。
+
+Productionのブランチを切り替える順序は次のとおりです。
+
+1. 必要な環境変数を登録し、実装ブランチをPreviewでデプロイします。
+2. デプロイが **Ready** になった後、**Settings → Environments → Production → Branch Tracking** に`codex/inner-weather-iphone`を入れて **Save** します。`No deployments found`の場合は、先にこのブランチのデプロイを成功させてください。
+3. Productionの環境変数を確認し、同じブランチを再デプロイします。
+
+PreviewのURLとProductionのURLは異なります。`APP_ORIGIN`がProductionのURLのままのPreviewではログイン等が403になるため、Previewを実際に操作する場合はそのURLへ設定を合わせて再デプロイします。Production設定を変える必要はありません。公開用ドメインでの確認は、Productionのデプロイが成功してから行います。
 
 1. Vercelの **Domains** に表示されたアプリURLをコピーします。
 2. `APP_ORIGIN` がそのURLのoriginと一致することを確認します。異なる場合は設定を変更し、再デプロイします。
