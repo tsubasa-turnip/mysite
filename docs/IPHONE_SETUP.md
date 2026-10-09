@@ -26,7 +26,7 @@ GitHubに実装ブランチ `codex/inner-weather-iphone` があることを確�
 1. Vercelで **Add New → Project** を開き、`tsubasa-turnip/mysite` を選択します。GitHub連携でこのリポジトリへのアクセスを許可します。
 2. 初回Importが`master`で公開され、「Hello, World」が表示された場合は、そのプロジェクトを使って次の設定を続けます。
 3. 実装は **Next.js**、Root Directoryはリポジトリのルートです。実装ブランチの`vercel.json`がframeworkとビルドコマンドを指定します。**Settings → Domains**に表示される実際のドメインを確認し、`https://`を付けた値を`APP_ORIGIN`に使います。`<プロジェクト名>.vercel.app`は説明用の例で、実際のドメインはプロジェクト名だけから決められません。
-4. Node.jsは **24.x** を指定します。インストールとビルドのコマンド、4 MBのアップロード上限は `vercel.json` にあります。
+4. Node.jsは **24.x** を指定します。インストールとビルドのコマンドは `vercel.json` にあります。Vercelでのアップロード上限はビルド・実行時とも未設定でも4 MBになります。
 5. 以下を **Environment Variables** に1項目ずつ登録します。**Key**に変数名、**Value**に値を入れます。接続文字列・APIキー・暗号鍵は **Secret**、公開URLは **Config** を選びます。Previewで先にビルドする場合はPreviewにも必要な設定を登録します。`NEXT_PUBLIC_`を付けず、値をGitHubへコミットしないでください。
 
 | 名前                        | 入れる値                                                         |
@@ -40,6 +40,16 @@ GitHubに実装ブランチ `codex/inner-weather-iphone` があることを確�
 | `OPENAI_API_KEY`            | 任意。生成AI・文字起こしを使う場合のみ。最初は未設定で構いません |
 
 暗号鍵は信頼できる端末で `openssl rand -hex 32` を実行して生成します。表示された鍵をVercelの設定へ直接コピーし、別途安全にバックアップします。鍵を失うと本文を復号できません。Codexの秘密変数名に制約がある場合のOpenAI設定はREADMEを参照してください。
+
+端末にターミナルがない場合は、SupabaseのSQL Editorで以下を実行して生成できます。まだ暗号化した日記を保存していない初回設定向けです。保存済みデータがある場合は元の鍵を維持してください。
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+SET search_path = public, extensions;
+SELECT encode(gen_random_bytes(32), 'hex') AS encryption_key;
+```
+
+結果の表に出るセルの内容（`0`〜`9`と`a`〜`f`からなる64文字）だけを`DATA_ENCRYPTION_KEY`のValueへコピーします。SQLの文、列名`encryption_key`、引用符、改行を含めません。秘密の値をチャットやスクリーンショットに載せず、Vercelと安全なバックアップ先へ直接保存してください。
 
 `INNER_WEATHER_LOCAL` は設定しません。実際のドメインが予定と変わった場合は `APP_ORIGIN` を更新して再デプロイします。PreviewとProductionのURLは異なるため、それぞれ使うURLに合わせて設定します。複数環境はDBと暗号鍵も分けてください。
 

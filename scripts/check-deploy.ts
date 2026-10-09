@@ -1,5 +1,6 @@
 // Offline preflight: validate settings without sending any data or logging secret values.
 import nextEnv from '@next/env';
+import { uploadLimitMb, VERCEL_UPLOAD_MB } from '../src/lib/upload-limits';
 const { loadEnvConfig } = nextEnv;
 loadEnvConfig(process.cwd(), false, { info() {}, error() {} });
 
@@ -37,8 +38,16 @@ if (process.env.DATA_ENCRYPTION_KEY && !/^[0-9a-f]{64}$/i.test(process.env.DATA_
   problems.push('DATA_ENCRYPTION_KEY: 64桁の16進数が必要です');
 if (process.env.INNER_WEATHER_LOCAL === '1')
   problems.push('INNER_WEATHER_LOCAL: 公開環境では削除してください');
-if (process.env.VERCEL && Number(process.env.MAX_UPLOAD_MB || 25) > 4)
-  problems.push('MAX_UPLOAD_MB: Vercelでは4以下に設定してください');
+const configuredUploadMb = process.env.MAX_UPLOAD_MB
+  ? Number(process.env.MAX_UPLOAD_MB)
+  : uploadLimitMb();
+if (
+  process.env.VERCEL &&
+  (!Number.isFinite(configuredUploadMb) ||
+    configuredUploadMb < 1 ||
+    configuredUploadMb > VERCEL_UPLOAD_MB)
+)
+  problems.push('MAX_UPLOAD_MB: Vercelでは1〜4に設定してください');
 
 if (problems.length) {
   console.error('デプロイ前の設定確認に失敗しました。値は表示していません。');

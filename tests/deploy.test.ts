@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
 
 const names = [
@@ -48,6 +48,25 @@ describe('production deployment preflight', () => {
     expect(result.output).toContain('実接続・マイグレーションは別途検証');
     expect(result.output).toContain('OpenAI未設定');
     for (const value of Object.values(valid)) expect(result.output).not.toContain(value);
+  });
+  it('builds on Vercel when runtime upload settings are absent from the build environment', () => {
+    const result = preflight({ ...valid, VERCEL: '1', MAX_UPLOAD_MB: '' });
+    expect(result.status).toBe(0);
+    expect(result.output).not.toContain('MAX_UPLOAD_MB:');
+  });
+  it('enforces the Vercel default against an actual oversized import', async () => {
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('MAX_UPLOAD_MB', '');
+    vi.resetModules();
+    try {
+      const { UPLOAD_MB, parseExport } = await import('../src/lib/import-parser');
+      expect(UPLOAD_MB).toBe(4);
+      expect(() => parseExport(new Uint8Array(4 * 1024 * 1024 + 1), 'oversize.json')).toThrow(
+        expect.objectContaining({ status: 413 }),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
   it('blocks insecure origins, local database mode, weak encryption, and excessive Vercel uploads', () => {
     const result = preflight({
