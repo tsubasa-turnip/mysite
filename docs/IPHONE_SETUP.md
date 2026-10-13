@@ -78,6 +78,10 @@ PreviewのURLとProductionのURLは異なります。このプロジェクトに
 3. Supabaseの **Authentication → URL Configuration** で **Site URL** を同じHTTPS URLに設定します。確認メールのリンクにも使われます。
 4. SafariでそのURLを開き、「はじめての方はこちら」からアカウントを作成します。確認メールが届いた場合は先にメールを確認し、パスワードでログインします。
 
+確認メールが必要な場合は、ログイン画面でメールアドレスを入力し **確認メールを再送** を押せます。再送は明示的に押したときだけ行い、60秒の待機時間を設けています。登録済み・確認済みのアドレスで再度アカウントを作成した場合、Supabaseは送信せず受付だけを返すことがあります。再送の受付もメールの到着やアカウントの存在を保証しません。確認済みの方はパスワードでログインしてください。
+
+Supabase標準のメール送信は、原則としてプロジェクトの組織メンバーのアドレスに限られ、送信回数にも制限があります。ほかのアドレスへ送る場合は[SMTP設定](https://supabase.com/dashboard/project/_/auth/smtp)でカスタムSMTPの設定が必要です。実際の送信設定と最新の制限は[Supabase公式メール設定](https://supabase.com/docs/guides/auth/auth-smtp)で確認してください。
+
 公開後の設定を変更したときはVercelで再デプロイしてください。開発用アカウントやCodex内のデータは自動移行されません。必要な記録はJSONで書き出して保持し、ChatGPT原文は公式エクスポートから公開先へインポートしてください。一般のInner WeatherバックアップJSONの再取り込みは未実装です。
 
 ### ログイン時の接続エラー
@@ -88,10 +92,14 @@ PreviewのURLとProductionのURLは異なります。このプロジェクトに
 | --- | --- |
 | `DB_AUTH` | Vercelの`DATABASE_URL`。SupabaseのTransaction poolerのDBユーザー名と、実際のDBパスワードを使います。 |
 | `DB_CONFIG` | 接続文字列の形式。パスワードの特殊文字はURLエンコードしてください。 |
+| `DB_POOLER` | Transaction poolerの接続文字列を再確認してください。DBユーザー名は通常`postgres.<project-ref>`です。API用のpublishable keyはDBパスワードに使いません。 |
+| `DB_SERVER` | SupabaseのDB・接続プーラーの稼働状況と接続設定を確認してください。 |
 | `DB_SCHEMA` | 同じSupabaseプロジェクトで[マイグレーションSQL](../supabase/migrations/001_inner_weather.sql)を実行してください。 |
 | `DB_PERMISSION` | マイグレーションと、接続したDBユーザーの権限を確認してください。 |
 | `DB_TLS` / `DB_TLS_CONFIG` | 接続先と、Supabaseが提供する信頼済みCA証明書を確認してください。 |
 | `DB_CONNECT` / `DB_DATABASE` | Transaction poolerのホスト・ポート・DB名、プロジェクトの稼働状態とネットワーク設定を確認してください。 |
+
+既知のDBエラーに該当しない場合も、`IW_AUTH_LOGIN`（ログイン処理）や`IW_JOURNALS`（日記処理）など固定の診断コードを表示します。コード付きの説明文を確認すると、認証時の失敗かログイン後の読み込み失敗かを区別できます。`AUTH_ACCOUNT`は同じメールに紐づく別のAuth IDとの衝突です。既存の記録を引き継ぐには所有者の確認が必要なため、自動で行を削除・上書きしません。
 
 CA証明書が必要な場合はSupabaseの **Database → Settings → SSL Configuration** から取得し、証明書ファイル内の`-----BEGIN CERTIFICATE-----`から`-----END CERTIFICATE-----`までを、Vercelの環境変数`DATABASE_SSL_CA`のValueへ貼り付けます。複数の証明書を含むPEMにも対応します。設定を保存し再デプロイしてください。アプリとマイグレーションは接続先の証明書・ホスト名を検証します。
 

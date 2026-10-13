@@ -48,12 +48,51 @@ export function databaseError(error: unknown): AppError | null {
     case 'ETIMEDOUT':
     case 'ENOTFOUND':
     case 'EHOSTUNREACH':
+    case 'ENETUNREACH':
+    case 'ECONNRESET':
+    case 'EPIPE':
+    case 'ERR_SOCKET_CONNECTION_TIMEOUT':
     case 'CONNECTION_TIMEOUT':
     case 'CONNECT_TIMEOUT':
+    case 'CONNECTION_CLOSED':
+    case 'CONNECTION_ENDED':
+    case 'CONNECTION_DESTROYED':
+    case '08000':
+    case '08003':
+    case '08006':
+    case '08001':
+    case '08004':
+    case '57P03':
       return new AppError(
         503,
         '[DB_CONNECT] データベースに接続できません。DATABASE_URLの接続先とネットワーク設定を確認し、時間をおいて再試行してください',
       );
+    case '53300':
+      return new AppError(
+        503,
+        '[DB_CONNECT] データベースの同時接続数が上限に達しました。時間をおいて再試行してください',
+      );
+    case 'XX000': {
+      let message: unknown;
+      try {
+        message = (error as { message?: unknown }).message;
+      } catch {
+        // The known code still permits a safe generic response if message access fails.
+      }
+      // Supavisor uses XX000 for both tenant lookup failures and other internal errors.
+      // Only these provider-defined messages identify the tenant lookup failure.
+      const tenantNotFound =
+        message === 'Tenant or user not found' ||
+        (typeof message === 'string' &&
+          message.trim() === message &&
+          /^\(ENOTFOUND\) tenant\/user [^\s]+ not found$/.test(message));
+      return new AppError(
+        503,
+        tenantNotFound
+          ? '[DB_POOLER] SupabaseのTransaction poolerで接続先またはDBユーザーが見つかりません。DATABASE_URLの接続先とDBユーザー名（postgres.<project-ref>）を確認してください'
+          : '[DB_SERVER] データベースまたは接続プーラーで内部エラーが発生しました。Supabaseの稼働状況と接続設定を確認してください',
+      );
+    }
     default:
       return null;
   }

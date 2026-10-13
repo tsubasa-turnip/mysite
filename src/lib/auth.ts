@@ -7,11 +7,12 @@ import { AppError } from './validation';
 import { authProviderError } from './auth-errors';
 import { z } from 'zod';
 const cookieName = 'iw_session';
+const emailSchema = z
+  .email()
+  .max(254)
+  .transform((v) => v.toLowerCase());
 const authSchema = z.object({
-  email: z
-    .email()
-    .max(254)
-    .transform((v) => v.toLowerCase()),
+  email: emailSchema,
   password: z.string().min(10).max(128),
   name: z.string().max(80).optional(),
 });
@@ -65,13 +66,25 @@ export async function authenticate(input: unknown, register: boolean) {
       ? await client.auth.signUp({ email, password })
       : await client.auth.signInWithPassword({ email, password });
     if (error) throw authProviderError(error);
-    if (!data.session || !data.user) return { verifyEmail: true };
+    if (!data.session || !data.user) {
+      if (register) return { verifyEmail: true };
+      throw new AppError(502, '[AUTH_SESSION] ログインのセッションを開始できませんでした');
+    }
     token = data.session.access_token;
     userId = data.user.id;
-    await database.query(
-      "INSERT INTO users(id,email,auth_kind) VALUES($1,$2,'supabase') ON CONFLICT(id) DO UPDATE SET email=excluded.email",
-      [userId, email],
-    );
+    try {
+      await database.query(
+        "INSERT INTO users(id,email,auth_kind) VALUES($1,$2,'supabase') ON CONFLICT(id) DO UPDATE SET email=excluded.email",
+        [userId, email],
+      );
+    } catch (error) {
+      if ((error as { code?: string } | null)?.code === '23505')
+        throw new AppError(
+          409,
+          '[AUTH_ACCOUNT] アプリのアカウント情報を同期できません。既存の記録を保つため、管理者による確認が必要です',
+        );
+      throw error;
+    }
   } else {
     if (register) {
       userId = randomUUID();
@@ -115,6 +128,27 @@ export async function authenticate(input: unknown, register: boolean) {
     maxAge: client ? 3600 : 604800,
   });
   return { id: userId, email };
+}
+export async function resendConfirmation(input: unknown) {
+  ensureAuth();
+  const { email } = z.object({ email: emailSchema }).parse(input);
+  const client = supabase();
+  if (!client)
+    throw new AppError(503, '[AUTH_EMAIL] 確認メールの送信にはSupabaseの認証設定が必要です');
+  const { error } = await client.auth.resend({
+    type: 'signup',
+    email,
+    ...(process.env.APP_ORIGIN ? { options: { emailRedirectTo: process.env.APP_ORIGIN } } : {}),
+  });
+  if (error) {
+    const failure = authProviderError(error);
+    if (failure.status === 400)
+      throw new AppError(502, '[AUTH_EMAIL] 確認メールの再送要求を完了できませんでした');
+    throw failure;
+  }
+  // Supabase also accepts this request for unknown or already confirmed emails.
+  // Never assert that mail was sent or return account existence/provider data.
+  return { accepted: true };
 }
 export async function logout() {
   const jar = await cookies();

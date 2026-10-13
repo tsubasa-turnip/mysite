@@ -9,6 +9,12 @@ describe('safe authentication provider errors', () => {
     expect(error.status).toBe(401);
     expect(error.message).toContain('確認メールのリンク');
   });
+  it('explains a mail delivery configuration failure without revealing the recipient', () => {
+    const error = authProviderError({ code: 'email_address_not_authorized', status: 400 });
+    expect(error.status).toBe(503);
+    expect(error.message).toContain('[AUTH_EMAIL]');
+    expect(error.message).toContain('メール送信設定');
+  });
 
   it.each(['over_request_rate_limit', 'over_email_send_rate_limit', 'over_sms_send_rate_limit'])(
     'asks the user to wait when the provider reports %s',
@@ -38,7 +44,9 @@ describe('safe authentication provider errors', () => {
     for (const input of [{}, { code: 'future_provider_error', status: 500 }, { status: 401 }]) {
       const error = authProviderError(input);
       expect(error.status).toBe(400);
-      expect(error.message).toBe('認証できませんでした。メールアドレスとパスワードを確認してください');
+      expect(error.message).toBe(
+        '認証できませんでした。メールアドレスとパスワードを確認してください',
+      );
     }
   });
 
@@ -50,6 +58,7 @@ describe('safe authentication provider errors', () => {
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       for (const code of [
+        'email_address_not_authorized',
         'email_not_confirmed',
         'over_email_send_rate_limit',
         'email_provider_disabled',
@@ -59,7 +68,8 @@ describe('safe authentication provider errors', () => {
         const providerError = { code, status: 400, message: providerMessage };
         const error = authProviderError(providerError);
         const serialized = JSON.stringify({ ...error, message: error.message, stack: error.stack });
-        for (const secret of [...secrets, providerMessage]) expect(serialized).not.toContain(secret);
+        for (const secret of [...secrets, providerMessage])
+          expect(serialized).not.toContain(secret);
         expect(error).not.toHaveProperty('cause');
       }
       expect(log).not.toHaveBeenCalled();

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import postgres from 'postgres';
 import { databaseError } from '../src/lib/database-errors';
 import { AppError } from '../src/lib/validation';
 
@@ -25,13 +26,36 @@ const knownFailures = [
       'ETIMEDOUT',
       'ENOTFOUND',
       'EHOSTUNREACH',
+      'ENETUNREACH',
+      'ECONNRESET',
+      'EPIPE',
+      'ERR_SOCKET_CONNECTION_TIMEOUT',
       'CONNECTION_TIMEOUT',
       'CONNECT_TIMEOUT',
+      'CONNECTION_CLOSED',
+      'CONNECTION_ENDED',
+      'CONNECTION_DESTROYED',
+      '08000',
+      '08003',
+      '08006',
+      '08001',
+      '08004',
+      '57P03',
     ],
     category: 'DB_CONNECT',
     advice: '接続先とネットワーク設定',
   },
+  { codes: ['53300'], category: 'DB_CONNECT', advice: '時間をおいて' },
+  { codes: ['XX000'], category: 'DB_SERVER', advice: '内部エラー' },
 ];
+
+// The driver's runtime constructor accepts parsed wire fields; its declarations inherit
+// Error's string-only constructor, so Reflect supplies the real protocol object.
+function providerFailure(message: string): postgres.PostgresError {
+  return Reflect.construct(postgres.PostgresError, [
+    { severity_local: 'FATAL', code: 'XX000', message },
+  ]) as postgres.PostgresError;
+}
 
 describe('safe database infrastructure errors', () => {
   for (const { codes, category, advice } of knownFailures) {
@@ -79,6 +103,59 @@ describe('safe database infrastructure errors', () => {
         },
       }),
     ).toBeNull();
+    expect(databaseError({ code: 'unknown', message: 'Tenant or user not found' })).toBeNull();
+    expect(databaseError({ cause: providerFailure('Tenant or user not found') })).toBeNull();
+  });
+
+  it.each([
+    'Tenant or user not found',
+    '(ENOTFOUND) tenant/user private-db-user.private-project-ref not found',
+  ])('recognizes the provider tenant lookup failure without returning its input', (message) => {
+    const original = providerFailure(message);
+    expect(original).toBeInstanceOf(postgres.PostgresError);
+    expect(original.code).toBe('XX000');
+    expect(typeof original.code).toBe('string');
+    const error = databaseError(original);
+
+    expect(error).toBeInstanceOf(AppError);
+    expect(error?.status).toBe(503);
+    expect(error?.message).toContain('[DB_POOLER]');
+    expect(error?.message).toContain('postgres.<project-ref>');
+    for (const privateText of ['private-db-user', 'private-project-ref', message]) {
+      expect(error?.message).not.toContain(privateText);
+    }
+  });
+
+  it.each([
+    'Internal database failure private-journal-text',
+    'Tenant or user not found: unrelated extension failure',
+    'prefix (ENOTFOUND) tenant/user private.user not found',
+    '(ENOTFOUND) tenant/user private.user not found suffix',
+    '(ENOTFOUND) tenant/user private\nuser not found',
+    '(ENOTFOUND) tenant/user private user not found',
+    '(ENOTFOUND) tenant/user private.user not found\n',
+    '(ENOTFOUND) tenant/user private.user not found\r\n',
+  ])(
+    'keeps unrelated XX000 failures generic without claiming an authentication cause',
+    (message) => {
+      const error = databaseError(providerFailure(message));
+      expect(error?.status).toBe(503);
+      expect(error?.message).toContain('[DB_SERVER]');
+      expect(error?.message).not.toContain('[DB_POOLER]');
+      expect(error?.message).not.toContain('パスワード');
+      expect(error?.message).not.toContain(message);
+    },
+  );
+
+  it('handles unreadable XX000 provider text using the generic server classification', () => {
+    const error = databaseError({
+      code: 'XX000',
+      get message() {
+        throw new Error('private provider details');
+      },
+    });
+    expect(error?.status).toBe(503);
+    expect(error?.message).toContain('[DB_SERVER]');
   });
 
   it('returns and logs no credentials, query contents, provider details, or nested error data', () => {
@@ -113,6 +190,36 @@ describe('safe database infrastructure errors', () => {
           for (const secret of [privateText, privateQuery, 'private-user-email@example.test']) {
             expect(serialized).not.toContain(secret);
           }
+        }
+      }
+      for (const message of [
+        'Tenant or user not found',
+        '(ENOTFOUND) tenant/user private-user.private-project-ref not found',
+      ]) {
+        const original = Object.assign(providerFailure(message), {
+          detail: privateText,
+          query: privateQuery,
+          parameters: ['private-user-email@example.test'],
+          cause: { message: privateText },
+          stack: privateText,
+        });
+        const error = databaseError(original);
+        expect(error?.message).toContain('[DB_POOLER]');
+        expect(error).not.toHaveProperty('cause');
+        const serialized = JSON.stringify({
+          ...error,
+          message: error?.message,
+          stack: error?.stack,
+        });
+        for (const secret of [
+          privateText,
+          privateQuery,
+          message,
+          'private-user',
+          'private-project-ref',
+          'private-user-email@example.test',
+        ]) {
+          expect(serialized).not.toContain(secret);
         }
       }
       expect(log).not.toHaveBeenCalled();

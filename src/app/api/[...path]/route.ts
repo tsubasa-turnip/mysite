@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { currentUser, authenticate, logout } from '@/lib/auth';
+import { currentUser, authenticate, logout, resendConfirmation } from '@/lib/auth';
 import { AppError, uuidSchema, dateOnly } from '@/lib/validation';
 import { assertRequestOrigin } from '@/lib/request-origin';
+import { unexpectedRequestError } from '@/lib/request-errors';
 import { asUser } from '@/lib/db';
 import {
   listEntries,
@@ -102,9 +103,10 @@ function ok(data: unknown) {
   return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } });
 }
 async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  let route = '';
   try {
     const { path } = await params;
-    const route = path.join('/');
+    route = path.join('/');
     if (route === 'worker' && req.method === 'POST') {
       const configured = process.env.WORKER_SECRET;
       const supplied = req.headers.get('authorization')?.replace(/^Bearer /, '') || '';
@@ -118,9 +120,17 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
       return ok({ processed: await runWorkerTick(1) });
     }
     assertRequestOrigin(req);
-    if (['auth/login', 'auth/register'].includes(route) && req.method === 'POST') {
+    if (
+      ['auth/login', 'auth/register', 'auth/resend-confirmation'].includes(route) &&
+      req.method === 'POST'
+    ) {
       rate('auth:' + (req.headers.get('x-forwarded-for')?.split(',')[0] || 'local'), 10);
-      return ok(await authenticate(await json(req), route.endsWith('register')));
+      const input = await json(req);
+      return ok(
+        route === 'auth/resend-confirmation'
+          ? await resendConfirmation(input)
+          : await authenticate(input, route.endsWith('register')),
+      );
     }
     if (route === 'auth/logout' && req.method === 'POST') {
       await logout();
@@ -326,11 +336,9 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
         },
         { status: 400 },
       );
-    console.error('Inner Weather request failed:', e instanceof Error ? e.name : 'UnknownError');
-    return NextResponse.json(
-      { error: '処理を完了できませんでした。設定と接続を確認してください' },
-      { status: 500 },
-    );
+    const failure = unexpectedRequestError(route);
+    console.error('Inner Weather request failed:', failure.diagnostic);
+    return NextResponse.json(failure, { status: 500 });
   }
 }
 export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };

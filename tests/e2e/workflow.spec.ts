@@ -188,6 +188,28 @@ test('API authorization, CSRF, file limits, consent and user isolation', async (
     expect(authenticated.ok()).toBe(true);
     expect((await authenticated.json()).user.id).toBe(registered.id);
   }
+  expect(
+    (
+      await a.request.post('/api/auth/resend-confirmation', {
+        headers: { origin: 'https://evil.example.test' },
+        data: { email: 'synthetic-recovery@example.test' },
+      })
+    ).status(),
+  ).toBe(403);
+  expect(
+    (
+      await a.request.post('/api/auth/resend-confirmation', {
+        headers: { origin },
+        data: { email: '' },
+      })
+    ).status(),
+  ).toBe(400);
+  const localResend = await a.request.post('/api/auth/resend-confirmation', {
+    headers: { origin },
+    data: { email: 'synthetic-recovery@example.test' },
+  });
+  expect(localResend.status()).toBe(503);
+  expect((await localResend.json()).error).toContain('[AUTH_EMAIL]');
   const entry = await a.request.post('/api/journals', {
     headers: { origin },
     data: {

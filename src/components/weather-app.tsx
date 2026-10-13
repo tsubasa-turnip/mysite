@@ -1,5 +1,6 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
 import {
   Home,
   BookOpen,
@@ -1030,17 +1031,50 @@ function Auth({ onReady, error: initialError }: { onReady: () => Promise<void>; 
     [name, setName] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(initialError),
-    [message, setMessage] = useState('');
+    [message, setMessage] = useState(''),
+    [resendCooldown, setResendCooldown] = useState(0);
+  const resendDeadline = useRef(0);
+  const resendEmail = email.trim();
+  const validEmail = z.email().max(254).safeParse(resendEmail).success;
+  useEffect(() => {
+    if (!resendCooldown) return;
+    const timer = setInterval(
+      () => setResendCooldown(Math.max(0, Math.ceil((resendDeadline.current - Date.now()) / 1000))),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError('');
+    setMessage('');
     try {
       const v = await send('auth/' + (register ? 'register' : 'login'), { email, password, name });
       if (v.verifyEmail) {
-        setMessage('確認メールを開いてから、ログインしてください。');
+        setMessage(
+          'メール確認が必要な場合は、確認メールのリンクを開いてください。すでに確認済みの場合は、そのままログインしてください。',
+        );
         setRegister(false);
       } else await onReady();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resendConfirmation() {
+    if (busy || resendCooldown || !validEmail) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    resendDeadline.current = Date.now() + 60000;
+    setResendCooldown(60);
+    try {
+      await send('auth/resend-confirmation', { email: resendEmail });
+      setMessage(
+        '確認が必要なアカウントの場合に、メールの再送を依頼しました。届いた最新のメールを確認してください。確認済みなら、そのままログインできます。',
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -1095,6 +1129,7 @@ function Auth({ onReady, error: initialError }: { onReady: () => Promise<void>; 
               <input
                 type="email"
                 required
+                maxLength={254}
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -1134,12 +1169,23 @@ function Auth({ onReady, error: initialError }: { onReady: () => Promise<void>; 
           </form>
           <button
             className="text-link auth-switch"
+            disabled={busy}
             onClick={() => {
               setRegister(!register);
               setError('');
+              setMessage('');
             }}
           >
             {register ? 'すでにアカウントをお持ちの方' : 'はじめての方はこちら'}
+          </button>
+          <button
+            className="text-link auth-switch"
+            disabled={busy || !validEmail || resendCooldown > 0}
+            onClick={() => void resendConfirmation()}
+          >
+            {resendCooldown > 0
+              ? `確認メールを再送（あと${resendCooldown}秒）`
+              : '確認メールを再送'}
           </button>
           <p className="auth-privacy">
             <ShieldCheck size={15} />
