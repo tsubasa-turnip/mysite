@@ -32,6 +32,7 @@ import { ImportPanel } from './import-panel';
 import { InsightsPanel } from './insights-panel';
 import { ReflectPanel } from './reflect-panel';
 import { SettingsPanel } from './settings-panel';
+import { PasswordRecoveryRequest } from './password-recovery';
 import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
 import { Empty, formatTime, zonedToday } from './shared';
@@ -1026,6 +1027,7 @@ export function WeatherApp() {
 }
 function Auth({ onReady, error: initialError }: { onReady: () => Promise<void>; error: string }) {
   const [register, setRegister] = useState(false),
+    [forgotPassword, setForgotPassword] = useState(false),
     [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
     [name, setName] = useState(''),
@@ -1081,6 +1083,18 @@ function Auth({ onReady, error: initialError }: { onReady: () => Promise<void>; 
       setBusy(false);
     }
   }
+  if (forgotPassword)
+    return (
+      <PasswordRecoveryRequest
+        initialEmail={email}
+        onBack={() => {
+          setForgotPassword(false);
+          setRegister(false);
+          setError('');
+          setMessage('');
+        }}
+      />
+    );
   return (
     <div className="auth-page">
       <div className="auth-story">
@@ -1177,6 +1191,13 @@ function Auth({ onReady, error: initialError }: { onReady: () => Promise<void>; 
             }}
           >
             {register ? 'すでにアカウントをお持ちの方' : 'はじめての方はこちら'}
+          </button>
+          <button
+            className="text-link auth-switch"
+            disabled={busy}
+            onClick={() => setForgotPassword(true)}
+          >
+            パスワードを忘れた方
           </button>
           <button
             className="text-link auth-switch"

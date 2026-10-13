@@ -5,6 +5,7 @@ import { currentUser, authenticate, logout, resendConfirmation } from '@/lib/aut
 import { AppError, uuidSchema, dateOnly } from '@/lib/validation';
 import { assertRequestOrigin } from '@/lib/request-origin';
 import { unexpectedRequestError } from '@/lib/request-errors';
+import { requestPasswordReset, resetPassword } from '@/lib/password-recovery';
 import { asUser } from '@/lib/db';
 import {
   listEntries,
@@ -121,11 +122,25 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     }
     assertRequestOrigin(req);
     if (
-      ['auth/login', 'auth/register', 'auth/resend-confirmation'].includes(route) &&
+      [
+        'auth/login',
+        'auth/register',
+        'auth/resend-confirmation',
+        'auth/password-reset-email',
+        'auth/password-reset',
+      ].includes(route) &&
       req.method === 'POST'
     ) {
       rate('auth:' + (req.headers.get('x-forwarded-for')?.split(',')[0] || 'local'), 10);
       const input = await json(req);
+      if (route === 'auth/password-reset-email') {
+        const returnOrigin =
+          process.env.VERCEL && process.env.VERCEL_PROJECT_PRODUCTION_URL
+            ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+            : process.env.APP_ORIGIN || req.headers.get('origin') || '';
+        return ok(await requestPasswordReset(input, returnOrigin));
+      }
+      if (route === 'auth/password-reset') return ok(await resetPassword(input));
       return ok(
         route === 'auth/resend-confirmation'
           ? await resendConfirmation(input)

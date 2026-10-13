@@ -2,6 +2,8 @@ const exactRoutes = new Map([
   ['auth/login', 'IW_AUTH_LOGIN'],
   ['auth/register', 'IW_AUTH_REGISTER'],
   ['auth/resend-confirmation', 'IW_AUTH_EMAIL'],
+  ['auth/password-reset-email', 'IW_AUTH_EMAIL'],
+  ['auth/password-reset', 'IW_AUTH_RECOVERY'],
   ['me', 'IW_PROFILE'],
   ['profile', 'IW_PROFILE'],
 ]);

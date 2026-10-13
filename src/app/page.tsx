@@ -1,4 +1,9 @@
 import { WeatherApp } from '@/components/weather-app';
+import { PasswordRecoveryGate } from '@/components/password-recovery';
 export default function Page() {
-  return <WeatherApp />;
+  return (
+    <PasswordRecoveryGate>
+      <WeatherApp />
+    </PasswordRecoveryGate>
+  );
 }

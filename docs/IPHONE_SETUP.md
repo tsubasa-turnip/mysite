@@ -82,6 +82,15 @@ PreviewのURLとProductionのURLは異なります。このプロジェクトに
 
 Supabase標準のメール送信は、原則としてプロジェクトの組織メンバーのアドレスに限られ、送信回数にも制限があります。ほかのアドレスへ送る場合は[SMTP設定](https://supabase.com/dashboard/project/_/auth/smtp)でカスタムSMTPの設定が必要です。実際の送信設定と最新の制限は[Supabase公式メール設定](https://supabase.com/docs/guides/auth/auth-smtp)で確認してください。
 
+### パスワードを忘れた場合
+
+1. Supabaseの **Authentication → URL Configuration** で、固定の公開ドメインを **Site URL** に設定します。**Redirect URLs** に`https://実際の公開ドメイン/?password-reset=1`を追加します。Vercelでは`VERCEL_PROJECT_PRODUCTION_URL`のドメインがメールの戻り先です。固定のドメインはVercelのDomainsで確認し、デプロイごとの一時URLと区別してください。
+2. アプリの **パスワードを忘れた方** を開き、登録済みのメールアドレスで **再設定メールを送る** を押します。アドレスの存在は返さず、送信は明示的な操作でのみ依頼します。
+3. 最新の再設定メールのリンクを開き、新しいパスワードを2回入力して保存します。リンクの認証情報はURLから消去し、永続保存しません。期限切れの場合は改めてメールを依頼してください。
+4. **ログインに戻る** から新しいパスワードでログインします。パスワードの変更は既存の日記や暗号鍵を変更しません。
+
+SupabaseのUsersから **Send password recovery** を使う場合もSMTPが必要です。再設定メールのURLには認証情報が含まれるため、チャット・スクリーンショットへ貼り付けず、自分のブラウザで開いてください。
+
 公開後の設定を変更したときはVercelで再デプロイしてください。開発用アカウントやCodex内のデータは自動移行されません。必要な記録はJSONで書き出して保持し、ChatGPT原文は公式エクスポートから公開先へインポートしてください。一般のInner WeatherバックアップJSONの再取り込みは未実装です。
 
 ### ログイン時の接続エラー
